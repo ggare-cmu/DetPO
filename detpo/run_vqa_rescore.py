@@ -66,7 +66,7 @@ def rescore_dataset(args, model, processor, dataset_path, data_instr_path,
     }
 
     # *** Load raw predictions from previous inference run ***
-    raw_predictions_path = os.path.join(output_dir, "live_results", "rank", f"{dataset_name}_live_results.json")
+    raw_predictions_path = os.path.join(output_dir, "live_results", "default", f"{dataset_name}_live_results.json")
     if not os.path.isfile(raw_predictions_path):
         raise FileNotFoundError(
             f"Raw predictions file not found: {raw_predictions_path}. "
