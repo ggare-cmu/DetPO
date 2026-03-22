@@ -28,6 +28,16 @@ All scripts require a running vLLM server. Start it before running any evaluatio
 
 ### 0. Launch the vLLM Server
 
+Qwen models are gated on Hugging Face and require authentication before vLLM can download them. Log in once before starting the server:
+
+```bash
+huggingface-cli login
+# or set the environment variable directly:
+export HF_TOKEN=your_token_here
+```
+
+Then start the server:
+
 ```bash
 bash detpo/launch_vllm_server.sh
 # override model or port:
@@ -49,9 +59,7 @@ python -m detpo.run_detpo_optimization \
     --dataset_path my-dataset \
     --output_dir results/ipt_output \
     --ipt_mode \
-    --num_ipt_iterations 5 \
-    --num_samples 10 \
-    --vqa_rescore
+    --num_ipt_iterations 10 
 ```
 
 ### Zero-Shot Evaluation
@@ -64,8 +72,7 @@ python -m detpo.run_evaluation \
     --root_path ./datasets/rf100-vl-fsod/ \
     --dataset_path my-dataset \
     --data_instr_path ./data_instr/default/README.dataset \
-    --output_dir results/eval_output \
-    --vqa_rescore
+    --output_dir results/eval_output 
 ```
 
 ### VQA Rescoring (standalone)

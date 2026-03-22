@@ -17,6 +17,7 @@ MODEL="Qwen3-VL-30B-A3B-Instruct"
 PORT=8000
 GPU_UTIL=0.85
 MAX_MODEL_LEN=4096
+TENSOR_PARALLEL=$(python3 -c "import torch; print(torch.cuda.device_count())")
 
 # Pass any extra args straight through to vllm serve
 EXTRA_ARGS=""
@@ -28,6 +29,7 @@ while [[ $# -gt 0 ]]; do
         --port)              PORT="$2";     shift 2 ;;
         --gpu-memory-utilization) GPU_UTIL="$2"; shift 2 ;;
         --max-model-len)     MAX_MODEL_LEN="$2"; shift 2 ;;
+        --tensor-parallel-size) TENSOR_PARALLEL="$2"; shift 2 ;;
         *)                   EXTRA_ARGS="$EXTRA_ARGS $1"; shift ;;
     esac
 done
@@ -37,12 +39,14 @@ echo " vLLM Server"
 echo "  Model   : $MODEL"
 echo "  Port    : $PORT"
 echo "  GPU util: $GPU_UTIL"
+echo "  Tensor parallel: $TENSOR_PARALLEL"
 echo "============================================"
 
-vllm serve "$MODEL" \
+vllm serve "Qwen/$MODEL" \
     --port "$PORT" \
     --dtype float16 \
     --max-model-len "$MAX_MODEL_LEN" \
     --gpu-memory-utilization "$GPU_UTIL" \
+    --tensor-parallel-size "$TENSOR_PARALLEL" \
     --trust-remote-code \
     $EXTRA_ARGS
