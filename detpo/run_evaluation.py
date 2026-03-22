@@ -203,14 +203,7 @@ def run_single_dataset_evaluation(args, model=None, processor=None):
         print(f"Error: Invalid or missing --dataset_path: {dataset_path}")
         return
 
-    run_modes = []
-    if args.vqa_rescore:
-        run_modes.append("vqa")
-    if args.rank_rescore:
-        run_modes.append("rank")
-    if args.rating_rescore:
-        run_modes.append("rating")
-    run_name = "_".join(run_modes) if run_modes else "default"
+    run_name = "default"
 
     utils.set_seed(args.seed)
 
@@ -335,13 +328,9 @@ if __name__ == "__main__":
     parser.add_argument("--data_instr_path", type=str, default="./data_instr/default/README.dataset")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument('--server_url', type=str, default="http://localhost:8000/v1")
-    parser.add_argument('--gpu_ids', nargs='+', type=int, default=None)
     parser.add_argument('--vqa_batch_size', type=int, default=8)
-    parser.add_argument("--vqa_rescore", action="store_true")
     parser.add_argument("--rank_rescore", action="store_true")
-    parser.add_argument("--rating_rescore", action="store_true")
     parser.add_argument("--siglip_rescore", action="store_true")
-    parser.add_argument("--device_map_auto", action="store_true")
 
     args = parser.parse_args()
     run_single_dataset_evaluation(args)

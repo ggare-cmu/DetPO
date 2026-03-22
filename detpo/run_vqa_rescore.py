@@ -269,14 +269,10 @@ if __name__ == "__main__":
     parser.add_argument("--data_instr_type", type=str, default="ipt",
                         help="'ipt' for iterative-prompt-refinement instructions, 'default' for README.dataset defaults")
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument('--gpu_ids', nargs='+', type=int, default=None)
     parser.add_argument('--vqa_batch_size', type=int, default=8)
     parser.add_argument("--vqa_rescore", action="store_true")
     parser.add_argument("--vqa_nocontext", action="store_true")
-    parser.add_argument("--rank_rescore", action="store_true")
-    parser.add_argument("--rating_rescore", action="store_true")
     parser.add_argument("--siglip_rescore", action="store_true")
-    parser.add_argument("--device_map_auto", action="store_true")
 
     args = parser.parse_args()
     run_single_dataset_evaluation(args)

@@ -92,22 +92,25 @@ python -m detpo.run_vqa_rescore \
 
 ### Optional Arguments
 
-| Argument | Description | Default |
-|---|---|---|
-| `--model_name` | Qwen model variant served by the vLLM server | `Qwen3-VL-235B-A22B-Instruct` |
-| `--server_url` | Base URL of the vLLM OpenAI-compatible server | `http://localhost:8000/v1` |
-| `--root_path` | Root directory containing dataset subdirectories | `./datasets/rf100-vl-fsod/` |
-| `--dataset_path` | Name of the specific dataset subdirectory | required |
-| `--output_dir` | Directory for saving results, predictions, and visuals | required |
-| `--data_instr_path` | Path prefix for class instruction JSON files | `./data_instr/default/README.dataset` |
-| `--data_instr_type` | `ipt` for refined instructions, `default` for README defaults | — |
-| `--seed` | Random seed for reproducibility | `42` |
-| `--vqa_rescore` | Re-score detections using a VQA yes/no prompt | off |
-| `--siglip_rescore` | Re-score detections using SigLIP zero-shot classification | off |
-| `--ipt_mode` | Enable iterative prompt refinement | off |
-| `--num_ipt_iterations` | Number of IPT refinement iterations per class | `3` |
-| `--num_samples` | Max annotations per class for train/val subsampling during IPT | `None` (use all) |
-| `--vqa_batch_size` | Batch size for VQA rescoring calls | `8` |
+| Argument | Scripts | Description | Default |
+|---|---|---|---|
+| `--model_name` | all | Qwen model variant served by the vLLM server | `Qwen3-VL-235B-A22B-Instruct` |
+| `--server_url` | all | Base URL of the vLLM OpenAI-compatible server | `http://localhost:8000/v1` |
+| `--root_path` | all | Root directory containing dataset subdirectories | `./datasets/rf100-vl-fsod/` |
+| `--dataset_path` | all | Name of the specific dataset subdirectory | required |
+| `--output_dir` | all | Directory for saving results, predictions, and visuals | required |
+| `--seed` | all | Random seed for reproducibility | `42` |
+| `--vqa_batch_size` | all | Batch size for VQA rescoring calls | `8` |
+| `--data_instr_path` | `run_evaluation` | Path prefix for class instruction JSON files | `./data_instr/default/README.dataset` |
+| `--rank_rescore` | `run_evaluation`, `run_detpo_optimization` | Assign scores by detection rank order | off |
+| `--siglip_rescore` | `run_evaluation`, `run_detpo_optimization` | Re-score detections using SigLIP zero-shot classification | off |
+| `--ipt_mode` | `run_detpo_optimization` | Enable iterative prompt refinement | off |
+| `--num_ipt_iterations` | `run_detpo_optimization` | Number of IPT refinement iterations per class | `3` |
+| `--num_samples` | `run_detpo_optimization` | Max annotations per class for train/val subsampling during IPT | `None` (use all) |
+| `--vqa_rescore` | `run_vqa_rescore` | Re-score detections using a VQA yes/no prompt | off |
+| `--vqa_nocontext` | `run_vqa_rescore` | VQA rescoring without class instruction context | off |
+| `--siglip_rescore` | `run_vqa_rescore` | Re-score detections using SigLIP zero-shot classification | off |
+| `--data_instr_type` | `run_vqa_rescore` | `ipt` for refined instructions, `default` for README defaults | `ipt` |
 
 ## Dataset Requirements
 
