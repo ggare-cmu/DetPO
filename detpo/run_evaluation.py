@@ -3,10 +3,8 @@ Run cmd: CUDA_VISIBLE_DEVICES=0,1 python ipt/run_evaluation.py --model_name Qwen
 '''
 
 import os
-os.environ['VLLM_WORKER_MULTIPROC_METHOD'] = 'spawn'
 
 import json
-import torch
 
 from tqdm import tqdm
 
@@ -14,7 +12,6 @@ from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 
 import time
-import gc
 
 import numpy as np
 import argparse
@@ -96,70 +93,65 @@ def evaluate_dataset(args, model, processor, dataset_path,
 
         print(f"Categories in {dataset_name}: {cat_dict}")
 
-        with torch.inference_mode():
-            for img_info in tqdm(images_to_process, desc=f"Processing images in {os.path.basename(dataset_path)}"):
-                if img_info['id'] in processed_image_ids:
-                    print(f"Skipping already processed image_id: {img_info['id']}")
-                    total_count += 1
-                    continue
-
-                img_id = img_info["id"]
-                img_filename = img_info["file_name"]
-                image_path = os.path.join(test_dir, img_filename)
-
-                if not os.path.isfile(image_path):
-                    print(f"Image file not found: {image_path}. Skipping.")
-                    continue
-
-                ann_ids = coco_gt.getAnnIds(imgIds=[img_id])
-                anns = coco_gt.loadAnns(ann_ids)
-
-                cat_ids_for_image = set(ann["category_id"] for ann in anns)
-                print(f"Image {img_filename} has categories: {[coco_gt.cats[cat_id]['name'] for cat_id in cat_ids_for_image]}")
-
-                raw_output, all_detections = utils.run_inference_on_single_image(
-                    args,
-                    model, processor,
-                    image_path=image_path,
-                    dataset_instructions_json=dataset_instructions_json,
-                    class_name_list=ds_cat_names,
-                    output_dir=output_dir,
-                    siglip_pipe=siglip_pipe,
-                )
-
-                for eval_type, detections in all_detections.items():
-                    for det in detections:
-                        detections_all_by_type[eval_type].append({
-                            "image_id": img_id,
-                            "category_id": cat_name2id_dict.get(det["category_name"], -1),
-                            "bbox": det["bbox"],
-                            "score": det["score"]
-                        })
-
+        for img_info in tqdm(images_to_process, desc=f"Processing images in {os.path.basename(dataset_path)}"):
+            if img_info['id'] in processed_image_ids:
+                print(f"Skipping already processed image_id: {img_info['id']}")
                 total_count += 1
+                continue
 
-                # Incremental save
-                if total_count % 5 == 0:
-                    print(f"\nSaving intermediate results at image {total_count + 1}/{len(images_to_process)}...")
-                    for eval_type, detections in detections_all_by_type.items():
-                        with open(prediction_cache_paths[eval_type], "w", encoding="utf-8") as f:
-                            json.dump(detections, f)
+            img_id = img_info["id"]
+            img_filename = img_info["file_name"]
+            image_path = os.path.join(test_dir, img_filename)
 
-                yield {
-                    "img_id": img_id,
-                    "image_path": image_path,
-                    "gt_bboxes": [ann["bbox"] for ann in anns],
-                    "pred_bboxes": [det["bbox"] for det in all_detections["ranking"]],
-                    "raw_output": raw_output,
-                    "parsed_detections_model": all_detections["model"],
-                    "parsed_detections_ranking": all_detections["ranking"],
-                    "gt_anns": anns,
-                    "cat_dict": cat_dict,
-                }
+            if not os.path.isfile(image_path):
+                print(f"Image file not found: {image_path}. Skipping.")
+                continue
 
-        del raw_output
-        torch.cuda.empty_cache()
-        gc.collect()
+            ann_ids = coco_gt.getAnnIds(imgIds=[img_id])
+            anns = coco_gt.loadAnns(ann_ids)
+
+            cat_ids_for_image = set(ann["category_id"] for ann in anns)
+            print(f"Image {img_filename} has categories: {[coco_gt.cats[cat_id]['name'] for cat_id in cat_ids_for_image]}")
+
+            raw_output, all_detections = utils.run_inference_on_single_image(
+                args,
+                model, processor,
+                image_path=image_path,
+                dataset_instructions_json=dataset_instructions_json,
+                class_name_list=ds_cat_names,
+                output_dir=output_dir,
+                siglip_pipe=siglip_pipe,
+            )
+
+            for eval_type, detections in all_detections.items():
+                for det in detections:
+                    detections_all_by_type[eval_type].append({
+                        "image_id": img_id,
+                        "category_id": cat_name2id_dict.get(det["category_name"], -1),
+                        "bbox": det["bbox"],
+                        "score": det["score"]
+                    })
+
+            total_count += 1
+
+            # Incremental save
+            if total_count % 5 == 0:
+                print(f"\nSaving intermediate results at image {total_count + 1}/{len(images_to_process)}...")
+                for eval_type, detections in detections_all_by_type.items():
+                    with open(prediction_cache_paths[eval_type], "w", encoding="utf-8") as f:
+                        json.dump(detections, f)
+
+            yield {
+                "img_id": img_id,
+                "image_path": image_path,
+                "gt_bboxes": [ann["bbox"] for ann in anns],
+                "pred_bboxes": [det["bbox"] for det in all_detections["ranking"]],
+                "raw_output": raw_output,
+                "parsed_detections_model": all_detections["model"],
+                "parsed_detections_ranking": all_detections["ranking"],
+                "gt_anns": anns,
+                "cat_dict": cat_dict,
+            }
 
         for eval_type, detections in detections_all_by_type.items():
             with open(prediction_cache_paths[eval_type], "w", encoding="utf-8") as f:
@@ -224,7 +216,7 @@ def run_single_dataset_evaluation(args, model=None, processor=None):
 
     print(f"Using model: {args.model_name}")
     if model is None or processor is None:
-        model, processor = utils.load_qwen_model(args.model_name)
+        model, processor = utils.load_qwen_model(args.model_name, server_url=args.server_url)
     else:
         print("Using provided model and processor.")
 
@@ -342,6 +334,7 @@ if __name__ == "__main__":
     parser.add_argument("--output_dir", type=str, default="results/rf100vl-zeroshot/rf20_IPT_singleclass_vqaScore_withNMS")
     parser.add_argument("--data_instr_path", type=str, default="./data_instr/default/README.dataset")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument('--server_url', type=str, default="http://localhost:8000/v1")
     parser.add_argument('--gpu_ids', nargs='+', type=int, default=None)
     parser.add_argument('--vqa_batch_size', type=int, default=8)
     parser.add_argument("--vqa_rescore", action="store_true")

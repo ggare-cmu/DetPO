@@ -3,7 +3,6 @@ Run cmd: CUDA_VISIBLE_DEVICES=0,1 python ipt/run_detpo_optimization.py --model_n
 '''
 
 import os
-os.environ['VLLM_WORKER_MULTIPROC_METHOD'] = 'spawn'
 
 import json
 import torch
@@ -14,7 +13,6 @@ from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 
 import time
-import gc
 
 import numpy as np
 import argparse
@@ -103,59 +101,54 @@ def evaluate_dataset(args, model, processor, dataset_path, run_name="", output_d
 
         print(f"Categories in {dataset_name}: {cat_dict}")
 
-        with torch.inference_mode():
-            for img_info in tqdm(images_to_process, desc=f"Processing images in {os.path.basename(dataset_path)}"):
-                img_id = img_info["id"]
-                img_filename = img_info["file_name"]
-                image_path = os.path.join(train_dir, img_filename)
+        for img_info in tqdm(images_to_process, desc=f"Processing images in {os.path.basename(dataset_path)}"):
+            img_id = img_info["id"]
+            img_filename = img_info["file_name"]
+            image_path = os.path.join(train_dir, img_filename)
 
-                if not os.path.isfile(image_path):
-                    print(f"Image file not found: {image_path}. Skipping.")
-                    continue
+            if not os.path.isfile(image_path):
+                print(f"Image file not found: {image_path}. Skipping.")
+                continue
 
-                ann_ids = coco_gt.getAnnIds(imgIds=[img_id])
-                anns = coco_gt.loadAnns(ann_ids)
+            ann_ids = coco_gt.getAnnIds(imgIds=[img_id])
+            anns = coco_gt.loadAnns(ann_ids)
 
-                cat_ids_for_image = set(ann["category_id"] for ann in anns)
-                print(f"Image {img_filename} has categories: {[coco_gt.cats[cat_id]['name'] for cat_id in cat_ids_for_image]}")
+            cat_ids_for_image = set(ann["category_id"] for ann in anns)
+            print(f"Image {img_filename} has categories: {[coco_gt.cats[cat_id]['name'] for cat_id in cat_ids_for_image]}")
 
-                raw_output, all_detections = utils.run_inference_on_single_image(
-                    args,
-                    model, processor,
-                    image_path=image_path,
-                    dataset_instructions_json=dataset_instructions_json,
-                    class_name_list=[eval_class_name],
-                    output_dir=output_dir,
-                    siglip_pipe=siglip_pipe,
-                )
+            raw_output, all_detections = utils.run_inference_on_single_image(
+                args,
+                model, processor,
+                image_path=image_path,
+                dataset_instructions_json=dataset_instructions_json,
+                class_name_list=[eval_class_name],
+                output_dir=output_dir,
+                siglip_pipe=siglip_pipe,
+            )
 
-                for eval_type, detections in all_detections.items():
-                    for det in detections:
-                        detections_all_by_type[eval_type].append({
-                            "image_id": img_id,
-                            "category_id": cat_name2id_dict.get(det["category_name"], -1),
-                            "bbox": det["bbox"],
-                            "score": det["score"]
-                        })
+            for eval_type, detections in all_detections.items():
+                for det in detections:
+                    detections_all_by_type[eval_type].append({
+                        "image_id": img_id,
+                        "category_id": cat_name2id_dict.get(det["category_name"], -1),
+                        "bbox": det["bbox"],
+                        "score": det["score"]
+                    })
 
-                total_count += 1
+            total_count += 1
 
-                yield {
-                    "img_id": img_id,
-                    "image_path": image_path,
-                    "gt_bboxes": [ann["bbox"] for ann in anns],
-                    "pred_bboxes": [det["bbox"] for det in all_detections["ranking"]],
-                    "raw_output": raw_output,
-                    "parsed_detections_model": all_detections["model"],
-                    "parsed_detections_ranking": all_detections["ranking"],
-                    "all_detections": all_detections,
-                    "gt_anns": anns,
-                    "cat_dict": cat_dict,
-                }
-
-        del raw_output
-        torch.cuda.empty_cache()
-        gc.collect()
+            yield {
+                "img_id": img_id,
+                "image_path": image_path,
+                "gt_bboxes": [ann["bbox"] for ann in anns],
+                "pred_bboxes": [det["bbox"] for det in all_detections["ranking"]],
+                "raw_output": raw_output,
+                "parsed_detections_model": all_detections["model"],
+                "parsed_detections_ranking": all_detections["ranking"],
+                "all_detections": all_detections,
+                "gt_anns": anns,
+                "cat_dict": cat_dict,
+            }
 
         for eval_type, detections in detections_all_by_type.items():
             with open(prediction_cache_paths[eval_type], "w", encoding="utf-8") as f:
@@ -1129,7 +1122,7 @@ def run_single_dataset_evaluation(args):
 
     utils.set_seed(args.seed)
     print(f"Using model: {args.model_name}")
-    model, processor = utils.load_qwen_model(args.model_name)
+    model, processor = utils.load_qwen_model(args.model_name, server_url=args.server_url)
 
     siglip_pipe = None
     if args.siglip_rescore:
@@ -1154,9 +1147,6 @@ def run_single_dataset_evaluation(args):
             siglip_pipe=siglip_pipe,
             num_samples=args.num_samples,
         )
-
-    torch.cuda.empty_cache()
-    gc.collect()
 
     print("\n\n" + "*" * 60 + "\n")
     print("Starting the final evaluation with the new refined class definitions...")
@@ -1183,6 +1173,7 @@ if __name__ == "__main__":
     parser.add_argument("--dataset_path", type=str, default=None)
     parser.add_argument("--output_dir", type=str, default="results/rf100vl_IPT/rf20_IPT_singleclass_vqaScore_withNMS")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument('--server_url', type=str, default="http://localhost:8000/v1")
     parser.add_argument('--gpu_ids', nargs='+', type=int, default=None)
     parser.add_argument('--vqa_batch_size', type=int, default=8)
     parser.add_argument("--vqa_rescore", action="store_true")

@@ -1,6 +1,6 @@
 # DetPO: In-Context Learning with Multi-Modal LLMs for Few-Shot Object Detection:
 
-A framework for zero-shot object detection using Vision-Language Models (VLMs), featuring iterative prompt refinement, confidence rescoring, and COCO-format evaluation. Built on top of vLLM for fast multi-GPU inference.
+A framework for zero-shot object detection using Vision-Language Models (VLMs), featuring iterative prompt refinement, confidence rescoring, and COCO-format evaluation. Inference is served through a **vLLM OpenAI-compatible HTTP server**, decoupling model hosting from the evaluation pipeline.
 
 This repository contains scripts to set up the environment and run DetPO-based prompt optimization for object detection.
 
@@ -14,24 +14,36 @@ Create and set up the Conda environment using the provided setup script. The set
 
 ```bash
 bash setup.sh ROBOFLOW_API_KEY
-
 ```
 
 After the script completes, activate the environment:
 
 ```bash
 conda activate detpo-env
-
 ```
 
 ## Usage
+
+All scripts require a running vLLM server. Start it before running any evaluation or optimization script.
+
+### 0. Launch the vLLM Server
+
+```bash
+bash detpo/launch_vllm_server.sh
+# override model or port:
+bash detpo/launch_vllm_server.sh --model Qwen3-VL-8B-Instruct --port 8001
+```
+
+The server exposes an OpenAI-compatible API at `http://localhost:8000/v1` by default. All scripts accept `--server_url` to point at a different host/port.
+
+Once the server prints `Application startup complete`, proceed with the steps below.
 
 ### Detection Prompt Optimization (DetPO)
 
 Automatically refine class descriptions over N iterations, then run final evaluation:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0,1 python run_detpo_optimization.py \
+python -m detpo.run_detpo_optimization \
     --model_name Qwen3-VL-30B-A3B-Instruct \
     --root_path ./datasets/rf100-vl-fsod/ \
     --dataset_path my-dataset \
@@ -47,7 +59,7 @@ CUDA_VISIBLE_DEVICES=0,1 python run_detpo_optimization.py \
 Evaluate a dataset on the test split using existing class instructions:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0,1 python run_evaluation.py \
+python -m detpo.run_evaluation \
     --model_name Qwen3-VL-8B-Instruct \
     --root_path ./datasets/rf100-vl-fsod/ \
     --dataset_path my-dataset \
@@ -56,16 +68,32 @@ CUDA_VISIBLE_DEVICES=0,1 python run_evaluation.py \
     --vqa_rescore
 ```
 
+### VQA Rescoring (standalone)
+
+Re-score detections from a prior inference run without re-running detection. Reads pre-computed rank-scored predictions from `<output_dir>/live_results/rank/`.
+
+```bash
+python -m detpo.run_vqa_rescore \
+    --model_name Qwen3-VL-30B-A3B-Instruct \
+    --root_path ./datasets/rf100-vl-fsod/ \
+    --dataset_path my-dataset \
+    --output_dir results/eval_output \
+    --data_instr_type ipt \
+    --vqa_rescore
+```
+
 
 ### Optional Arguments
 
 | Argument | Description | Default |
 |---|---|---|
-| `--model_name` | Qwen model variant to load | `Qwen3-VL-235B-A22B-Instruct` |
+| `--model_name` | Qwen model variant served by the vLLM server | `Qwen3-VL-235B-A22B-Instruct` |
+| `--server_url` | Base URL of the vLLM OpenAI-compatible server | `http://localhost:8000/v1` |
 | `--root_path` | Root directory containing dataset subdirectories | `./datasets/rf100-vl-fsod/` |
 | `--dataset_path` | Name of the specific dataset subdirectory | required |
 | `--output_dir` | Directory for saving results, predictions, and visuals | required |
 | `--data_instr_path` | Path prefix for class instruction JSON files | `./data_instr/default/README.dataset` |
+| `--data_instr_type` | `ipt` for refined instructions, `default` for README defaults | — |
 | `--seed` | Random seed for reproducibility | `42` |
 | `--vqa_rescore` | Re-score detections using a VQA yes/no prompt | off |
 | `--siglip_rescore` | Re-score detections using SigLIP zero-shot classification | off |
@@ -167,7 +195,7 @@ Three rescoring strategies are available and can be selected via flags:
 
 ## Token Usage Tracking
 
-All three files share a module-level `TOKEN_STATS` singleton (defined in `utils.py`). Token counts are extracted directly from vLLM's `RequestOutput.metrics` after every `model.generate()` call.
+All scripts share a module-level `TOKEN_STATS` singleton (defined in `utils.py`). Token counts are read from the `usage` field of each OpenAI-compatible API response returned by the vLLM server.
 
 Counts are broken down by stage:
 
@@ -198,6 +226,6 @@ Long runs can be interrupted and resumed without restarting from scratch:
 ## Notes
 
 - **Coordinate system** — Qwen3-VL outputs relative coordinates in the range 0–1000. Qwen2.5-VL outputs absolute pixel coordinates. The code handles both automatically based on `--model_name`.
-- **Multi-GPU** — tensor parallelism is configured automatically via `torch.cuda.device_count()`. Override GPU selection with `CUDA_VISIBLE_DEVICES`.
-- **Expert parallelism** — enabled automatically for MoE models (`Qwen3-VL-30B-A3B` and `Qwen3-VL-235B-A22B`).
-- **Image resizing** — images larger than 2880×1620 are automatically downsampled before inference. If inference still fails (OOM), a 1280×720 fallback is attempted.
+- **vLLM server** — GPU count, tensor parallelism, expert parallelism, and memory utilization are all configured in `detpo/launch_vllm_server.sh`. The client scripts are GPU-agnostic and communicate with the server over HTTP.
+- **Qwen2.5-VL processor** — when using a Qwen2.5-VL model, the `AutoProcessor` is still loaded on CPU by the client to compute image patch dimensions for bounding-box coordinate rescaling. No GPU is required on the client side.
+- **Image resizing** — images larger than 2880×1620 are automatically downsampled before being sent to the server. If a request still fails, a 1280×720 fallback is attempted.

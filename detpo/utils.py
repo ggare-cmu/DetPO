@@ -1,15 +1,18 @@
 import os
 os.environ['VLLM_WORKER_MULTIPROC_METHOD'] = 'spawn'
 
-from vllm import LLM, SamplingParams
+from openai import OpenAI
 
 from tqdm import tqdm
 import gc
 import argparse
+import base64
+from io import BytesIO
+import math
 
 import torch
 
-from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor, AutoModelForImageTextToText, Qwen3VLForConditionalGeneration, Qwen3VLMoeForConditionalGeneration
+from transformers import AutoProcessor
 from qwen_vl_utils import process_vision_info
 
 from pycocotools.coco import COCO
@@ -104,6 +107,24 @@ class TokenStats:
             self.stage_breakdown[stage]["completion"] += completion_toks
             self.stage_breakdown[stage]["calls"] += n_calls
 
+    def record_api_usage(self, usage, stage: str = "unknown"):
+        """
+        Extract token counts from an OpenAI-compatible CompletionUsage object
+        (e.g. response.usage) and add them to the running totals.
+        """
+        if usage is None:
+            return
+        prompt_toks = getattr(usage, 'prompt_tokens', 0) or 0
+        completion_toks = getattr(usage, 'completion_tokens', 0) or 0
+        with self._lock:
+            self.prompt_tokens += prompt_toks
+            self.completion_tokens += completion_toks
+            self.total_tokens += prompt_toks + completion_toks
+            self.call_count += 1
+            self.stage_breakdown[stage]["prompt"] += prompt_toks
+            self.stage_breakdown[stage]["completion"] += completion_toks
+            self.stage_breakdown[stage]["calls"] += 1
+
     def snapshot(self, label: str = ""):
         """Print a one-line summary of current totals."""
         tag = f" [{label}]" if label else ""
@@ -179,125 +200,130 @@ def load_siglip_pipeline():
     return pipe
 
 
-def load_qwen_model(model_name):
-    dtype = "auto" if "-FP8" in model_name else torch.bfloat16
-    print(f"Loading using LLM class from vLLM with dtype: {dtype}")
+def load_qwen_model(model_name, server_url="http://localhost:8000/v1"):
+    """
+    Instead of loading an in-process vLLM model, create an OpenAI client
+    pointed at the local vLLM server.  For Qwen2.5-VL models we also load
+    the AutoProcessor (CPU-only) so that image_grid_thw can be computed
+    locally for bounding-box coordinate rescaling.
+    """
+    print(f"Connecting to vLLM server at {server_url} with model {model_name}")
+    client = OpenAI(base_url=server_url, api_key="not-needed")
+    client.model_name = "Qwen/" + model_name
 
-    enable_expert_parallel = True if (
-        model_name.startswith("Qwen3-VL-235B-A22B-Instruct-FP8") or
-        model_name.startswith("Qwen3-VL-30B-A3B-Instruct")
-    ) else False
-    print(f"enable_expert_parallel: {enable_expert_parallel}")
+    processor = None
+    if model_name.startswith("Qwen2.5-VL"):
+        print("Loading AutoProcessor for Qwen2.5-VL image-dimension computation …")
+        processor = AutoProcessor.from_pretrained("Qwen/" + model_name)
+        tokenizer = processor.tokenizer
+        tokenizer.padding_side = "left"
+        processor.tokenizer = tokenizer
+        print("processor.tokenizer.padding_side:", processor.tokenizer.padding_side)
 
-    tensor_parallel_size = 4 if model_name.startswith("Qwen2.5-VL-7B") else torch.cuda.device_count()
-    print(f"tensor_parallel_size: {tensor_parallel_size}")
-
-    model = LLM(
-        model="Qwen/" + model_name,
-        dtype=dtype,
-        trust_remote_code=True,
-        gpu_memory_utilization=0.90,
-        enforce_eager=False,
-        enable_expert_parallel=enable_expert_parallel,
-        tensor_parallel_size=tensor_parallel_size,
-        seed=0
-    )
-
-    processor = AutoProcessor.from_pretrained("Qwen/" + model_name)
-
-    print("processor.tokenizer.padding_side:", processor.tokenizer.padding_side)
-    print("processor.tokenizer.pad_token:", processor.tokenizer.pad_token)
-    print("processor.tokenizer.eos_token:", processor.tokenizer.eos_token)
-
-    tokenizer = processor.tokenizer
-    tokenizer.padding_side = "left"
-    processor.tokenizer = tokenizer
-
-    print("processor.tokenizer.padding_side:", processor.tokenizer.padding_side)
-    print("processor.tokenizer.pad_token:", processor.tokenizer.pad_token)
-    print("processor.tokenizer.eos_token:", processor.tokenizer.eos_token)
-
-    return model, processor
+    return client, processor
 
 
 # =============================================================================
-# Model inference utils
+# API message helpers
 # =============================================================================
+
+def _pil_to_data_url(img: Image.Image, fmt: str = "JPEG") -> str:
+    """Encode a PIL image as a data: URL for the OpenAI-compatible API."""
+    buf = BytesIO()
+    img.save(buf, format=fmt)
+    b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+    mime = "image/jpeg" if fmt.upper() == "JPEG" else f"image/{fmt.lower()}"
+    return f"data:{mime};base64,{b64}"
+
+
+def _convert_messages_for_api(messages):
+    """
+    Convert internal message dicts (with PIL images / file-path strings)
+    to the OpenAI Chat Completions format.
+    """
+    api_messages = []
+    for msg in messages:
+        role = msg["role"]
+        content = msg["content"]
+        if isinstance(content, str):
+            api_messages.append({"role": role, "content": content})
+        elif isinstance(content, list):
+            api_content = []
+            for part in content:
+                if part["type"] == "text":
+                    api_content.append({"type": "text", "text": part["text"]})
+                elif part["type"] == "image":
+                    img = part["image"]
+                    if isinstance(img, str):          # file path
+                        with open(img, "rb") as fh:
+                            b64 = base64.b64encode(fh.read()).decode("utf-8")
+                        url = f"data:image/jpeg;base64,{b64}"
+                    elif isinstance(img, Image.Image):   # PIL image
+                        url = _pil_to_data_url(img)
+                    else:
+                        raise ValueError(f"Unsupported image type: {type(img)}")
+                    api_content.append({
+                        "type": "image_url",
+                        "image_url": {"url": url},
+                    })
+            api_messages.append({"role": role, "content": api_content})
+    return api_messages
+
 
 def model_generate(messages, model, processor, token_stage: str = "generate"):
     """
-    Run a standard (non-scored) generation pass.
+    Run a standard (non-scored) generation pass via the vLLM HTTP API.
+    ``model``     – OpenAI client (with .model_name attribute)
+    ``processor`` – AutoProcessor for Qwen2.5-VL (or None for Qwen3-VL)
     Token usage is recorded into TOKEN_STATS under ``token_stage``.
     """
-    text_input = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-    image_inputs, _ = process_vision_info(messages)
-    inputs_org = processor(text=[text_input], images=image_inputs, padding=True, return_tensors="pt")
+    # For Qwen2.5-VL: compute inputs_org locally (CPU only) so callers can
+    # extract image_grid_thw for bbox coordinate rescaling.
+    inputs_org = None
+    if processor is not None:
+        text_input = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        image_inputs, _ = process_vision_info(messages)
+        inputs_org = processor(text=[text_input], images=image_inputs, padding=True, return_tensors="pt")
 
-    with torch.no_grad():
-        mm_data = {}
-        if image_inputs is not None:
-            mm_data['image'] = image_inputs
-
-        inputs = {
-            'prompt': text_input,
-            'multi_modal_data': mm_data,
-        }
-        sampling_params = SamplingParams(
-            temperature=0,
-            max_tokens=2048,
-            top_k=-1,
-            stop_token_ids=[],
-        )
-        outputs = model.generate(inputs, sampling_params=sampling_params)
-
-        # ── Token tracking ──────────────────────────────────────────────
-        TOKEN_STATS.record_outputs(outputs, stage=token_stage)
-        # ────────────────────────────────────────────────────────────────
-
-        output_text = None
-        for i, output in enumerate(outputs):
-            output_text = output.outputs[0].text
-
-    return output_text, inputs_org
+    api_messages = _convert_messages_for_api(messages)
+    response = model.chat.completions.create(
+        model=model.model_name,
+        messages=api_messages,
+        temperature=0,
+        max_tokens=2048,
+    )
+    TOKEN_STATS.record_api_usage(response.usage, stage=token_stage)
+    return response.choices[0].message.content, inputs_org
 
 
 def model_generate_with_scores(conversations, model, processor, max_new_tokens=1,
                                token_stage: str = "generate_with_scores"):
     """
-    Run a generation pass that also returns per-token logprobs.
+    Run a generation pass that also returns per-token top-logprobs via the API.
+    ``model``     – OpenAI client (with .model_name attribute)
+    ``processor`` – AutoProcessor for Qwen2.5-VL (or None for Qwen3-VL)
     Token usage is recorded into TOKEN_STATS under ``token_stage``.
+    Returns (output_text, inputs_org, response) where response is the raw
+    OpenAI ChatCompletion object (callers read response.choices[0].logprobs).
     """
-    text_input = processor.apply_chat_template(conversations, tokenize=False, add_generation_prompt=True)
-    image_inputs, _ = process_vision_info(conversations)
-    inputs_org = processor(text=[text_input], images=image_inputs, padding=True, return_tensors="pt")
+    inputs_org = None
+    if processor is not None:
+        text_input = processor.apply_chat_template(conversations, tokenize=False, add_generation_prompt=True)
+        image_inputs, _ = process_vision_info(conversations)
+        inputs_org = processor(text=[text_input], images=image_inputs, padding=True, return_tensors="pt")
 
-    with torch.no_grad():
-        mm_data = {}
-        if image_inputs is not None:
-            mm_data['image'] = image_inputs
-
-        inputs = {
-            'prompt': text_input,
-            'multi_modal_data': mm_data,
-        }
-        sampling_params = SamplingParams(
-            temperature=0,
-            max_tokens=max_new_tokens,
-            top_k=-1,
-            logprobs=10,
-            stop_token_ids=[],
-        )
-        outputs = model.generate(inputs, sampling_params=sampling_params)
-
-        # ── Token tracking ──────────────────────────────────────────────
-        TOKEN_STATS.record_outputs(outputs, stage=token_stage)
-        # ────────────────────────────────────────────────────────────────
-
-        output_text = None
-        for i, output in enumerate(outputs):
-            output_text = output.outputs[0].text
-
-    return output_text, inputs_org, outputs
+    api_messages = _convert_messages_for_api(conversations)
+    response = model.chat.completions.create(
+        model=model.model_name,
+        messages=api_messages,
+        temperature=0,
+        max_tokens=max_new_tokens,
+        logprobs=True,
+        top_logprobs=20,
+    )
+    TOKEN_STATS.record_api_usage(response.usage, stage=token_stage)
+    output_text = response.choices[0].message.content
+    return output_text, inputs_org, response
 
 
 # =============================================================================
@@ -343,17 +369,17 @@ def get_masked_image_vqa_scores(qwen_model, qwen_processor, prompt_list, pil_ima
             token_stage="vqa_score"
         )
 
-        assert len(outputs) == 1, "Error: Expected single output for single input."
-
-        token_logprobs = outputs[0].outputs[0].logprobs[0]
+        # outputs is an OpenAI ChatCompletion response
+        top_logprobs = outputs.choices[0].logprobs.content[0].top_logprobs if (
+            outputs.choices[0].logprobs and outputs.choices[0].logprobs.content
+        ) else []
 
         yes_logprob = None
         no_logprob = None
 
-        for token_id, token_info in token_logprobs.items():
-            logprob = token_info.logprob
-            decoded_token = token_info.decoded_token
-
+        for lp in top_logprobs:
+            decoded_token = lp.token
+            logprob = lp.logprob
             if "Yes" == decoded_token:
                 yes_logprob = logprob
             if yes_logprob is None and "yes" == decoded_token:
@@ -367,15 +393,15 @@ def get_masked_image_vqa_scores(qwen_model, qwen_processor, prompt_list, pil_ima
             all_final_scores.append(-1.0)
             continue
         if yes_logprob is None:
-            no_prob = torch.exp(torch.tensor(no_logprob)) if no_logprob is not None else torch.tensor(0.0)
-            yes_prob = 1 - no_prob
-            all_final_scores.append(yes_prob.item())
+            no_prob = math.exp(no_logprob) if no_logprob is not None else 0.0
+            yes_prob = 1.0 - no_prob
+            all_final_scores.append(yes_prob)
             continue
 
-        yes_prob = torch.exp(torch.tensor(yes_logprob)) if yes_logprob is not None else torch.tensor(0.0)
-        no_prob = torch.exp(torch.tensor(no_logprob)) if no_logprob is not None else torch.tensor(0.0)
+        yes_prob = math.exp(yes_logprob) if yes_logprob is not None else 0.0
+        no_prob = math.exp(no_logprob) if no_logprob is not None else 0.0
         score = yes_prob / (yes_prob + no_prob + 1e-18)
-        all_final_scores.append(score.item())
+        all_final_scores.append(score)
 
     return np.array(all_final_scores)
 
@@ -419,17 +445,17 @@ def get_masked_image_vqa_scores_with_instructions(qwen_model, qwen_processor, da
             token_stage="vqa_score_with_instructions"
         )
 
-        assert len(outputs) == 1, "Error: Expected single output for single input."
-
-        token_logprobs = outputs[0].outputs[0].logprobs[0]
+        # outputs is an OpenAI ChatCompletion response
+        top_logprobs = outputs.choices[0].logprobs.content[0].top_logprobs if (
+            outputs.choices[0].logprobs and outputs.choices[0].logprobs.content
+        ) else []
 
         yes_logprob = None
         no_logprob = None
 
-        for token_id, token_info in token_logprobs.items():
-            logprob = token_info.logprob
-            decoded_token = token_info.decoded_token
-
+        for lp in top_logprobs:
+            decoded_token = lp.token
+            logprob = lp.logprob
             if "Yes" == decoded_token:
                 yes_logprob = logprob
             if yes_logprob is None and "yes" == decoded_token:
@@ -443,15 +469,15 @@ def get_masked_image_vqa_scores_with_instructions(qwen_model, qwen_processor, da
             all_final_scores.append(-1.0)
             continue
         if yes_logprob is None:
-            no_prob = torch.exp(torch.tensor(no_logprob)) if no_logprob is not None else torch.tensor(0.0)
-            yes_prob = 1 - no_prob
-            all_final_scores.append(yes_prob.item())
+            no_prob = math.exp(no_logprob) if no_logprob is not None else 0.0
+            yes_prob = 1.0 - no_prob
+            all_final_scores.append(yes_prob)
             continue
 
-        yes_prob = torch.exp(torch.tensor(yes_logprob)) if yes_logprob is not None else torch.tensor(0.0)
-        no_prob = torch.exp(torch.tensor(no_logprob)) if no_logprob is not None else torch.tensor(0.0)
+        yes_prob = math.exp(yes_logprob) if yes_logprob is not None else 0.0
+        no_prob = math.exp(no_logprob) if no_logprob is not None else 0.0
         score = yes_prob / (yes_prob + no_prob + 1e-18)
-        all_final_scores.append(score.item())
+        all_final_scores.append(score)
 
     return np.array(all_final_scores)
 
@@ -581,8 +607,12 @@ def run_qwen_inference(args, model, processor, image, dataset_instructions, clas
     # We pass a more descriptive stage name here.
     output_text, inputs = model_generate(messages, model, processor, token_stage="detection")
 
-    input_height = inputs['image_grid_thw'][0][1] * 14
-    input_width = inputs['image_grid_thw'][0][2] * 14
+    if inputs is not None:
+        input_height = inputs['image_grid_thw'][0][1] * 14
+        input_width = inputs['image_grid_thw'][0][2] * 14
+    else:
+        input_height = None
+        input_width = None
 
     return output_text, input_width, input_height, None
 
@@ -763,7 +793,6 @@ def run_model_with_retries(args, model, processor, original_image, dataset_instr
     except Exception as e:
         print(f"❌ Unexpected error during inference: {e}")
         print("Retrying with downsized image...")
-        torch.cuda.empty_cache()
 
         resized_image = original_image.resize((1280, 720), Image.Resampling.LANCZOS)
         try:
@@ -776,7 +805,6 @@ def run_model_with_retries(args, model, processor, original_image, dataset_instr
             print("✅ Retry succeeded with downsized image.")
         except Exception as e:
             print(f"❌ Unexpected error during inference: {e}")
-            torch.cuda.empty_cache()
             raw_output_i, input_width, input_height, outputs_probs = '', None, None, None
 
     return raw_output_i, input_width, input_height, outputs_probs
@@ -895,7 +923,6 @@ def run_rescorer(args, model, processor, image_path, dataset_instructions_json, 
         except Exception as e:
             print(f"❌ Unexpected error during inference: {e}")
             print("Retrying with downsized image...")
-            torch.cuda.empty_cache()
             vqa_images_small = []
             for img in vqa_images:
                 img.thumbnail((1280, 720), Image.Resampling.LANCZOS)
@@ -909,7 +936,6 @@ def run_rescorer(args, model, processor, image_path, dataset_instructions_json, 
                 print("✅ Retry succeeded with downsized image.")
             except Exception as e:
                 print(f"❌ Unexpected error during inference: {e}")
-                torch.cuda.empty_cache()
                 vqa_scores = [-1] * len(parsed_bboxes)
 
         detections_vqa = [det.copy() for det in parsed_bboxes]
