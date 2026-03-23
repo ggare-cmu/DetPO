@@ -1,8 +1,8 @@
 # DetPO: In-Context Learning with Multi-Modal LLMs for Few-Shot Object Detection
 
-> **ECCV 2026** — Gautam Rajendrakumar Gare, Neehar Peri, Matvei Popov, Shruti Jain, John Galeotti, Deva Ramanan
+> **arXiv** — Gautam Rajendrakumar Gare, Neehar Peri, Matvei Popov, Shruti Jain, John Galeotti, Deva Ramanan
 
-[![Paper](https://img.shields.io/badge/Paper-ECCV%202026-blue)](https://github.com/gautamgare/DetPO)
+[![Paper](https://img.shields.io/badge/Paper-arXiv-red)](https://github.com/gautamgare/DetPO)
 [![GitHub](https://img.shields.io/badge/Code-GitHub-black)](https://github.com/gautamgare/DetPO)
 
 A gradient-free, black-box prompt optimization framework for few-shot object detection with frozen Multi-Modal LLMs. DetPO iteratively refines text-only class descriptions using contrastive error examples (false positives and false negatives) from a few-shot training set, then calibrates confidence with a VQA-based scoring step. Inference is served through a **vLLM OpenAI-compatible HTTP server**, decoupling model hosting from the evaluation pipeline.
@@ -171,6 +171,28 @@ python -m detpo.run_vqa_rescore \
 | `--siglip_rescore` | `run_vqa_rescore` | Re-score detections using SigLIP zero-shot classification | off |
 | `--data_instr_type` | `run_vqa_rescore` | `ipt` for refined instructions, `default` for README defaults | `ipt` |
 
+## Pre-computed Prompts
+
+The `prompts/` directory contains ready-to-use class descriptions for the Roboflow20-VL benchmark datasets:
+
+```
+prompts/
+├── default/                        # Baseline descriptions parsed from dataset README files
+│   ├── README.dataset_actions.json
+│   └── ...                         # One file per dataset
+└── detpo/                          # DetPO-optimized descriptions (per model)
+    ├── Qwen2.5-VL-7B-Instruct/
+    ├── Qwen2.5-VL-72B-Instruct/
+    ├── Qwen3-VL-8B-Instruct/
+    └── Qwen3-VL-30B-A3B-Instruct/
+        ├── all_refined_class_instructions_actions.json
+        └── ...                     # One file per dataset
+```
+
+To run evaluation with pre-computed DetPO prompts, point `--data_instr_path` (for `run_evaluation`) or place the files where `run_vqa_rescore` expects them under `<output_dir>/iterative_prompt_refinement/`.
+
+---
+
 ## Dataset Requirements
 
 The script expects a dataset structure similar to **Roboflow COCO exports**. The directory at `--dataset` must contain:
@@ -298,3 +320,18 @@ Long runs can be interrupted and resumed without restarting from scratch:
 - **vLLM server** — GPU count, tensor parallelism, expert parallelism, and memory utilization are all configured in `detpo/launch_vllm_server.sh`. The client scripts are GPU-agnostic and communicate with the server over HTTP.
 - **Qwen2.5-VL processor** — when using a Qwen2.5-VL model, the `AutoProcessor` is still loaded on CPU by the client to compute image patch dimensions for bounding-box coordinate rescaling. No GPU is required on the client side.
 - **Image resizing** — images larger than 2880×1620 are automatically downsampled before being sent to the server. If a request still fails, a 1280×720 fallback is attempted.
+
+---
+
+## Citation
+
+If you find this work useful, please cite:
+
+```bibtex
+@article{gare2026detpo,
+  title={DetPO: In-Context Learning with Multi-Modal LLMs for Few-Shot Object Detection},
+  author={Gare, Gautam Rajendrakumar and Peri, Neehar and Popov, Matvei and Jain, Shruti and Galeotti, John and Ramanan, Deva},
+  journal={arXiv preprint},
+  year={2026}
+}
+```

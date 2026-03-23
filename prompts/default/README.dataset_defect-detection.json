@@ -1,0 +1,6 @@
+{
+  "Defective Fishplate": "A fishplate is a flat piece of metal used to join two lengths of railway track. A defective fishplate often has visible damage, misalignment, or missing connectors.",
+  "Fastener": "Fasteners secure the rail to the railroad ties. They typically appear as small, noticeable clamps or clips attached directly to the rail.",
+  "Missing Fastener": "This class describes the absence of fasteners where they should be present along the rail.",
+  "Non Defective Fishplate": "A non defective fishplate is a properly aligned and undamaged connector joining two rails."
+}

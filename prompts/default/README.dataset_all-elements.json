@@ -1,0 +1,12 @@
+{
+  "Button": "A button is typically a rectangular area on the screen with text or an icon that can be clicked to perform an action.",
+  "Check Box": "A square element used to toggle between two states: checked or unchecked.",
+  "Checked Radio Button": "A circular button that indicates a selected choice, often filled or marked.",
+  "Checked Box": "A marked square indicating selection.",
+  "Dropdown Box": "An interface element typically shown as a horizontal rectangle with a downward arrow, indicating a menu.",
+  "Dropdown Expand": "The expanded view of a dropdown box, showing all selectable options.",
+  "Icon": "A small graphic symbol representing an action or object.",
+  "Radio Button": "A circular UI element used for making a single choice from multiple options.",
+  "Scroll Bar": "A vertical or horizontal bar used to scroll content, typically located on the edge of a screen or window.",
+  "Text Box": "A rectangular input field for entering text."
+}

@@ -1,0 +1,5 @@
+{
+  "coca-cola": "Coca-Cola bottles are typically dark in color with a distinctive label. The label features easily identifiable red branding. The shape of the bottle is usually symmetrical and cylindrical with a rounded red cap.",
+  "fanta": "[{'fanta': 'A plastic bottle containing a beverage with an orange cap and a label that prominently displays the Fanta logo. The bottle is cylindrical with a narrow neck and a wider body, typical of beverage containers. The label is visible on the side of the bottle, and the liquid inside is orange. The bottle is made of plastic, evident from its smooth, glossy surface. The bottle in the green bounding box has a slightly curved shape, while the one in the blue bounding box is more straight. Both bottles have a similar design and are part of the Fanta brand. The bottle in the red bounding box is a different beverage, likely a Coca-Cola, as indicated by the red cap and the distinct label design.'}]",
+  "sprite": "[\"{'sprite': 'A transparent or translucent plastic bottle with a green label and a green cap, containing a bright green liquid, indicative of a Sprite beverage, with a distinct 'Sprite' logo on the label.'}\"]"
+}

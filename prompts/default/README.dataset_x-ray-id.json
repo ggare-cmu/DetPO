@@ -1,0 +1,8 @@
+{
+  "DIP": "The DIP (or Distal Interphalangeal) joint is located near the tip of the finger, between the last two phalanges. It appears as a small gap representing the joint space on the X-ray.",
+  "MCP": "The MCP (or Metacarpophalangeal) joint is found at the knuckle, connecting fingers to the palm. It appears as a prominent gap near the base of each finger.",
+  "PIP": "The PIP (or Proximal Interphalangeal) joint is located between the first and second phalanges, appearing as a clear gap between the finger bones. It is below the DIP and above the MCP.",
+  "Radius": "The Radius is the thicker and shorter of the two forearm bones, located on the thumb side. It appears as a robust and continuous bone on the X-ray.",
+  "Ulna": "The Ulna runs parallel to the Radius and is typically longer and thinner, extending to the elbow.",
+  "Wrist": "The Wrist comprises multiple small carpal bones at the base of the hand, forming the connection to the forearm."
+}

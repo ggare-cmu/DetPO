@@ -1,0 +1,7 @@
+{
+    "Crack": "This class contains cracks in the wood. It specifically does not contain cracks that occur in knots.",
+    "Holes": "This class contains holes in wood. The two major kinds of holes are: the hole a termite or nail may leave behind, small and concentrated; or a hole that has the same dark color as a crack but just doesn't go anywhere, instead having a circular shape. These holes can be very small, so look carefully!",
+    "Knot with Crack": "This is a knot that has a crack in it. It doesn't matter if the knot is dead or alive; if it has a crack in it, it's a knot with crack.",      
+    "Dead Knot": "This knot belonged to a branch that died before the tree was cut down. Dead knots typically have strong discoloration around at least some part of their boundary, indicating that its growth with the tree was poor. Often this discoloration is in the form of a very dark ring around the knot. Other times, there is just a sudden and sharp contrast with the color of the rest of the wood, that isn't necessarily shaped as a ring. The discoloration is sharp and sudden. It can look like the boundary of rot.",
+    "Live Knot": "This a knot that belonged to a living branch. These knots may be a different color from the rest of the wood, but the boundary between them and the wood is typically softer than it is for a dead knot. The knot looks like it is part of the wood, solidly attached all the way around. If the wood has grain around the knot, the grain moves smoothly around the knot. These knots can have rings, but their boundaries are soft."
+}

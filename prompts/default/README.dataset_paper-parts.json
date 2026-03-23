@@ -1,0 +1,21 @@
+{
+  "Author": "Text indicating the name(s) of the author(s), typically found near the beginning of a document.",
+  "Chapter": "A major division of the document, often labeled with a number and title.",
+  "Equation": "Symbols and numbers arranged to represent a mathematical concept.",
+  "Equation Number": "Numerals used to uniquely identify equations.",
+  "Figure": "Visual content such as graphs, diagrams, code or images.",
+  "Figure Caption": "Text providing a description or explanation above or below a figure.",
+  "Footnote": "Clarifications or additional details located at the bottom of a page.",
+  "List of Content Heading": "Headings at the list of context text, identifying its purpose or content. This may also be called a list of figures. ",
+  "List of Content Text": "The detailed entries or points in a list. These often summarize all figures in the paper.",
+  "Page Number": "Numerical indication of the current page.",
+  "Paragraph": "Blocks of text separated by spacing or indentation.",
+  "Reference Text": "Bibliographic information found typically in a reference section.",
+  "Section": "Major subheadings documenting specific topics. This is typically represented using a single number (e.g. Section 3).",
+  "Subsection": "Secondary subheadings under sections. This is typically represented using a number followed by a decimal point, followed by another number (e.g. Section 3.2).",
+  "Subsubsection": "Specific subdivisions within subsections. This is typically represented using a number followed by a decimal point, followed by a number, followed by a decimal point, followed by another number (e.g. Section 3.2.4).",
+  "Table": "Information organized in rows and columns.",
+  "Table Caption": "Descriptive text above or below a table explaining its contents.",
+  "Table of Contents Text": "Entries in the table of contents listing sections and their page numbers.",
+  "Title": "The headline identifying the document's main subject."
+}

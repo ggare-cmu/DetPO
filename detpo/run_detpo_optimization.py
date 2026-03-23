@@ -914,7 +914,7 @@ def iterative_prompt_refinement(args, model, processor, dataset_path, num_iterat
                                 num_samples=None, siglip_pipe=None):
     utils.set_seed(args.seed)
 
-    readme_json_path = os.path.join("./data_instr/default", f"README.dataset_{os.path.basename(dataset_path)}.json")
+    readme_json_path = os.path.join("./prompts/default", f"README.dataset_{os.path.basename(dataset_path)}.json")
     class_instructions_json = {}
     if os.path.isfile(readme_json_path):
         with open(readme_json_path, "r", encoding="utf-8") as f:
