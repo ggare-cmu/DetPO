@@ -2,8 +2,8 @@
 
 > **arXiv** — Gautam Rajendrakumar Gare, Neehar Peri, Matvei Popov, Shruti Jain, John Galeotti, Deva Ramanan
 
-[![Paper](https://img.shields.io/badge/Paper-arXiv-red)](https://github.com/gautamgare/DetPO)
-[![GitHub](https://img.shields.io/badge/Code-GitHub-black)](https://github.com/gautamgare/DetPO)
+[![Paper](https://img.shields.io/badge/Paper-arXiv-red)](https://github.com/ggare-cmu/DetPO)
+[![GitHub](https://img.shields.io/badge/Code-GitHub-black)](https://github.com/ggare-cmu/DetPO)
 
 A gradient-free, black-box prompt optimization framework for few-shot object detection with frozen Multi-Modal LLMs. DetPO iteratively refines text-only class descriptions using contrastive error examples (false positives and false negatives) from a few-shot training set, then calibrates confidence with a VQA-based scoring step. Inference is served through a **vLLM OpenAI-compatible HTTP server**, decoupling model hosting from the evaluation pipeline.
 
