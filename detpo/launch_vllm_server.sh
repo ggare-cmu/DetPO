@@ -16,7 +16,7 @@ MODEL="Qwen3-VL-30B-A3B-Instruct"
 
 PORT=8000
 GPU_UTIL=0.85
-MAX_MODEL_LEN=4096
+MAX_MODEL_LEN=24096
 TENSOR_PARALLEL=$(python3 -c "import torch; print(torch.cuda.device_count())")
 
 # Pass any extra args straight through to vllm serve

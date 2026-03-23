@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DetPO: In-Context Learning with Multi-Modal LLMs for Few-Shot Object Detection</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --primary-color: #363636;
+            --link-color: #0000EE;
+            --bg-color: #ffffff;
+            --text-color: #4a4a4a;
+            --light-gray: #f5f5f5;
+        }
+
+        body {
+            font-family: "Times New Roman", Times, serif;
+            background-color: #fdfdfd;
+            color: var(--text-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            font-size: 1.1rem;
+        }
+
+        h1,
+        h2,
+        h3 {
+            color: var(--primary-color);
+            font-weight: 800;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            line-height: 1.2;
+        }
+
+        h2 {
+            font-size: 1.75rem;
+            margin-top: 2.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        h3 {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-top: 1.5rem;
+        }
+
+        a {
+            color: var(--link-color);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        a:hover {
+            color: var(--link-color);
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        /* Header Section */
+        .header-section {
+            text-align: center;
+            padding-bottom: 2rem;
+        }
+
+        .venue {
+            font-size: 1.1rem;
+            color: #555555;
+            margin-bottom: 0.5rem;
+            font-style: italic;
+        }
+
+        .authors {
+            margin-bottom: 0.5em;
+            font-size: 1.1rem;
+        }
+
+        .author {
+            display: inline-block;
+            margin: 0 0.5em;
+        }
+
+        .author a,
+        .section-links a {
+            font-size: 1.1rem;
+            text-decoration: none;
+            color: var(--link-color);
+            font-weight: bold;
+        }
+
+        .author a:hover,
+        .section-links a:hover {
+            text-decoration: underline;
+        }
+
+        .affiliation {
+            font-size: 1.1rem;
+            color: #555555;
+            margin-bottom: .5rem;
+        }
+
+        sup {
+            font-size: 0.75em;
+        }
+
+        /* Button Links */
+        .link-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+            font-family: "Helvetica", "Arial", sans-serif;
+        }
+
+        .btn {
+            background-color: #363636;
+            color: #fff !important;
+            padding: 10px 22px;
+            border-radius: 30px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.1s ease, background-color 0.2s ease;
+        }
+
+        .btn:hover {
+            background-color: #4a4a4a;
+            transform: translateY(-2px);
+            text-decoration: none;
+        }
+
+        .btn i {
+            margin-right: 8px;
+            font-size: 1.1em;
+        }
+
+        /* Abstract & Text */
+        .abstract-container {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: justify;
+        }
+
+        p {
+            margin-bottom: 1.2em;
+        }
+
+        /* Figures */
+        .figure-container {
+            margin: 2rem auto;
+            text-align: center;
+        }
+
+        .figure-container img {
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        }
+
+        .figure-caption {
+            margin-top: 0.8rem;
+            font-size: 0.95rem;
+            color: #555;
+            font-family: "Helvetica", "Arial", sans-serif;
+            text-align: justify;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .figure-caption strong {
+            color: #333;
+        }
+
+        /* Two column figure grid */
+        .two-col-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin: 1.5rem auto;
+            align-items: start;
+        }
+
+        .two-col-grid .figure-container {
+            margin: 0;
+        }
+
+        /* Tables */
+        .table-wrapper {
+            overflow-x: auto;
+            margin: 2rem 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+            background-color: white;
+            border-radius: 8px;
+            overflow: hidden;
+            font-family: "Helvetica", "Arial", sans-serif;
+            font-size: 0.82rem;
+        }
+
+        thead {
+            background-color: #f4f4f4;
+            border-bottom: 2px solid #ddd;
+        }
+
+        th,
+        td {
+            padding: 8px 10px;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        th:first-child,
+        td:first-child {
+            text-align: left;
+        }
+
+        th {
+            font-weight: 700;
+            color: #333;
+            font-size: 0.85rem;
+        }
+
+        td {
+            color: #555;
+            border-bottom: 1px solid #eee;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover {
+            background-color: #fafafa;
+        }
+
+        .group-header td {
+            background-color: #f0f0f0;
+            font-weight: 700;
+            color: #333;
+            font-style: italic;
+        }
+
+        .ours td {
+            background-color: #f0f8f0;
+        }
+
+        .best {
+            font-weight: 700;
+            color: #1a6b1a;
+        }
+
+        /* Citation Block */
+        .citation-block {
+            background-color: #f5f5f5;
+            padding: 1.0rem;
+            border-radius: 8px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            border: 1px solid #e0e0e0;
+            text-align: left;
+        }
+
+        /* Highlight box */
+        .highlight-box {
+            background-color: #f8f8f8;
+            border-left: 4px solid #888;
+            border-radius: 4px;
+            padding: 0.8rem 1.2rem;
+            margin: 1rem 0;
+            font-family: "Helvetica", "Arial", sans-serif;
+            font-size: 0.95rem;
+            color: #444;
+        }
+
+        hr {
+            border: 0;
+            height: 1px;
+            background: #e0e0e0;
+            margin: 3rem 0;
+            width: 50%;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Responsive Tweaks */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.8rem;
+            }
+
+            table {
+                display: block;
+                overflow-x: auto;
+            }
+
+            .two-col-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <div class="header-section">
+            <h1>DetPO: In-Context Learning with Multi-Modal LLMs<br>for Few-Shot Object Detection</h1>
+
+            <div class="venue">ECCV 2026</div>
+
+            <div class="authors">
+                <div class="author">
+                     <a href="https://ggare-cmu.github.io/" target="_blank">Gautam Gare</a><sup>*,1</sup>
+                </div>
+                <div class="author">
+                    <a href="https://www.neeharperi.com/" target="_blank">Neehar Peri</a><sup>*,1</sup>
+                </div>
+                <div class="author">
+                    Matvei Popov<sup>2</sup>
+                </div>
+                <div class="author">
+                    Shruti Jain<sup>1</sup>
+                </div>
+                <div class="author">
+                    John Galeotti<sup>1</sup>
+                </div>
+                <div class="author">
+                    <a href="https://www.cs.cmu.edu/~deva/" target="_blank">Deva Ramanan</a><sup>1</sup>
+                </div>
+            </div>
+
+            <div class="affiliation">
+                <sup>1</sup>Carnegie Mellon University &nbsp;&nbsp; <sup>2</sup>Roboflow
+                &nbsp;&nbsp; <sup>*</sup>Equal Contribution
+            </div>
+
+            <div class="link-buttons">
+                <a href="#" class="btn">
+                    <i class="fas fa-file-pdf"></i> Paper
+                </a>
+                <a href="https://github.com/gautamgare/DetPO" target="_blank" class="btn">
+                    <i class="fab fa-github"></i> Code
+                </a>
+            </div>
+
+            <div class="figure-container">
+                <img src="figures/teaser_fig.png" alt="DetPO Teaser Figure">
+                <p class="figure-caption">
+                    <strong>Detection Prompt Optimization.</strong> A frozen multi-modal LLM (MLLM) is presented with
+                    a class name, a textual description, and a few visual examples (<strong>left</strong>), similar to
+                    instructions given to a human annotator. Rather than presenting visual examples directly, we find it
+                    far more effective to use them to optimize a better prompt (<strong>right</strong>) via black-box
+                    prompt optimization; we use another MLLM to discover prompt instructions that perform better on the
+                    few-shot training dataset.
+                </p>
+            </div>
+        </div>
+
+        <div class="abstract-container">
+            <h2>Abstract</h2>
+            <p>
+                Multi-Modal LLMs (MLLMs) demonstrate strong visual grounding capabilities on popular object detection
+                benchmarks like OdinW-13 and RefCOCO. However, state-of-the-art models still struggle to generalize to
+                out-of-distribution classes, tasks, and imaging modalities not typically found in their pre-training.
+                While in-context prompting is a common strategy to improve performance across diverse tasks, we find
+                that it often yields <em>lower</em> detection accuracy than prompting with class names alone. This
+                suggests that current MLLMs cannot yet effectively leverage few-shot visual examples and rich textual
+                descriptions for object detection.
+            </p>
+            <p>
+                Since frontier MLLMs are typically only accessible via APIs, and state-of-the-art open-weights models
+                are prohibitively expensive to fine-tune on consumer-grade hardware, we instead explore black-box prompt
+                optimization for few-shot object detection. To this end, we propose <strong>Detection Prompt
+                Optimization (DetPO)</strong>, a gradient-free test-time optimization approach that refines text-only
+                prompts by maximizing detection accuracy on few-shot visual training examples while calibrating
+                prediction confidence. Our proposed approach yields consistent improvements across generalist MLLMs on
+                Roboflow20-VL and LVIS, outperforming prior black-box approaches by up to <strong>9.7%</strong>.
+            </p>
+        </div>
+
+        <hr>
+
+        <h2>Why Does Multi-Modal ICL Hurt Detection?</h2>
+        <div class="abstract-container">
+            <p>
+                We benchmark several state-of-the-art MLLMs and find that naively adding few-shot visual examples to
+                the prompt consistently <em>hurts</em> detection accuracy. We posit this arises from rigid prompt
+                structures used during post-training, making it difficult to exploit additional multi-modal contextual
+                information during zero-shot inference.
+            </p>
+        </div>
+
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Method</th>
+                        <th>Class Names</th>
+                        <th>Instructions</th>
+                        <th>Images</th>
+                        <th>mAP</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>Qwen2.5-VL (7B)</td><td>&#10003;</td><td>&#10007;</td><td>&#10007;</td><td>4.6</td></tr>
+                    <tr><td>Qwen2.5-VL (7B)</td><td>&#10003;</td><td>&#10003;</td><td>&#10007;</td><td>6.2</td></tr>
+                    <tr><td>Qwen2.5-VL (7B)</td><td>&#10003;</td><td>&#10003;</td><td>&#10003;</td><td>1.8</td></tr>
+                    <tr><td>Qwen2.5-VL (72B)</td><td>&#10003;</td><td>&#10007;</td><td>&#10007;</td><td>7.1</td></tr>
+                    <tr><td>Qwen2.5-VL (72B)</td><td>&#10003;</td><td>&#10003;</td><td>&#10007;</td><td>10.4</td></tr>
+                    <tr><td>Qwen2.5-VL (72B)</td><td>&#10003;</td><td>&#10003;</td><td>&#10003;</td><td>10.1</td></tr>
+                    <tr><td>Qwen3-VL (8B)</td><td>&#10003;</td><td>&#10007;</td><td>&#10007;</td><td>10.4</td></tr>
+                    <tr><td>Qwen3-VL (8B)</td><td>&#10003;</td><td>&#10003;</td><td>&#10007;</td><td>11.4</td></tr>
+                    <tr><td>Qwen3-VL (8B)</td><td>&#10003;</td><td>&#10003;</td><td>&#10003;</td><td>7.0</td></tr>
+                    <tr><td>Qwen3-VL (30B-A3B)</td><td>&#10003;</td><td>&#10007;</td><td>&#10007;</td><td>10.7</td></tr>
+                    <tr><td>Qwen3-VL (30B-A3B)</td><td>&#10003;</td><td>&#10003;</td><td>&#10007;</td><td>11.9</td></tr>
+                    <tr><td>Qwen3-VL (30B-A3B)</td><td>&#10003;</td><td>&#10003;</td><td>&#10003;</td><td>9.8</td></tr>
+                    <tr><td>Gemini 3 Pro</td><td>&#10003;</td><td>&#10007;</td><td>&#10007;</td><td>21.9</td></tr>
+                    <tr><td>Gemini 3 Pro</td><td>&#10003;</td><td>&#10003;</td><td>&#10007;</td><td>23.0</td></tr>
+                    <tr><td>Gemini 3 Pro</td><td>&#10003;</td><td>&#10003;</td><td>&#10003;</td><td>23.9</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <hr>
+
+        <h2>Method: Detection Prompt Optimization (DetPO)</h2>
+        <div class="figure-container">
+            <img src="figures/Overview Figure.png" alt="DetPO Overview">
+            <p class="figure-caption">
+                <strong>DetPO Overview.</strong> DetPO generates initial class descriptions from ground-truth bounding
+                boxes and iteratively refines them based on model predictions through contrastive prompt refinement.
+                At each step, the model's true positives, false positives, and false negatives on the few-shot
+                training set guide targeted improvements to the class description.
+            </p>
+        </div>
+
+        <div class="abstract-container">
+            <h3 style="text-align:left;">Contrastive Prompt Refinement</h3>
+            <p>
+                Unlike traditional detectors trained primarily on true positive examples, we find that MLLMs achieve
+                higher detection accuracy when provided with corner cases and negative examples, similar to how human
+                annotators learn from examples of what <em>not</em> to annotate. DetPO iteratively refines class
+                descriptions by identifying the worst false positive (highest confidence incorrect detection) and worst
+                false negative (lowest-IoU missed detection), and uses these to instruct the model to explicitly
+                <em>exclude</em> incorrect examples and <em>include</em> missed instances.
+            </p>
+
+            <h3 style="text-align:left;">Confidence Score Estimation via VQA Score</h3>
+            <p>
+                Current MLLMs often overpredict bounding boxes and lack per-box confidence scores. We find that
+                prompting models to self-report per-box scores improves detection accuracy. Optionally, we post-process
+                detections with VQA Score: for each predicted bounding box overlaid on the test image, we ask
+                "Is this bounding box an instance of class {CLS}?" and use the normalized probability of the
+                <em>Yes</em> token as the final confidence score. This significantly down-weights false positives
+                and improves mAP.
+            </p>
+        </div>
+
+        <div class="figure-container">
+            <img src="figures/volley_ball_optimized_instructions.png" alt="Contrastive Prompt Refinement Example">
+            <p class="figure-caption">
+                <strong>Contrastive Prompt Refinement Reduces Class Confusion.</strong> At each iteration, we use the
+                current class description to query the MLLM on the training set, identify true positives, false
+                positives, and false negatives, and refine the prompt to correct errors. The highlighted text shows
+                newly added details that differentiate <em>Serve</em> from <em>Attack</em> in a volleyball dataset.
+            </p>
+        </div>
+
+        <hr>
+
+        <h2>Results</h2>
+
+        <h3>Roboflow20-VL Benchmark</h3>
+        <div class="abstract-container">
+            <p>
+                We evaluate on Roboflow20-VL (RF20-VL), a few-shot object detection benchmark spanning 20 diverse
+                domains including aerial imagery, X-rays, medical imaging, and wildlife monitoring. Each dataset
+                provides 10-shot training examples and rich annotation instructions per class.
+            </p>
+        </div>
+
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Method</th>
+                        <th>Aerial</th>
+                        <th>Document</th>
+                        <th>Flora &amp; Fauna</th>
+                        <th>Industrial</th>
+                        <th>Medical</th>
+                        <th>Sports</th>
+                        <th>Other</th>
+                        <th>All</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="group-header"><td colspan="9">Specialist Models</td></tr>
+                    <tr><td>GroundingDINO (C)</td><td>28.5</td><td>5.1</td><td>33.7</td><td>12.8</td><td>0.4</td><td>5.1</td><td>16.9</td><td>16.8</td></tr>
+                    <tr><td>LLMDet (C)</td><td>32.3</td><td>4.4</td><td>33.6</td><td>12.6</td><td>0.7</td><td>6.7</td><td>16.7</td><td>17.2</td></tr>
+                    <tr><td>SAM3 (C)</td><td>32.3</td><td>15.3</td><td>17.1</td><td>13.8</td><td>2.0</td><td>14.2</td><td>17.8</td><td>16.3</td></tr>
+                    <tr><td>MQ-GLIP (C)</td><td>30.1</td><td>2.5</td><td>32.8</td><td>5.5</td><td>0.5</td><td>6.4</td><td>10.8</td><td>14.0</td></tr>
+                    <tr><td>YOLO-E (C)</td><td>10.2</td><td>1.6</td><td>16.4</td><td>8.1</td><td>0.3</td><td>7.8</td><td>10.9</td><td>9.2</td></tr>
+                    <tr class="group-header"><td colspan="9">Generalist Models</td></tr>
+                    <tr><td>Qwen3-VL (30B-A3B) (C + I)</td><td>9.0</td><td>7.8</td><td>23.5</td><td>9.6</td><td>0.7</td><td>14.4</td><td>10.1</td><td>11.9</td></tr>
+                    <tr><td>&nbsp;&nbsp;+ GEPA</td><td>9.3</td><td>12.4</td><td>23.6</td><td>10.8</td><td>1.3</td><td>15.1</td><td>11.3</td><td>13.0</td></tr>
+                    <tr><td>&nbsp;&nbsp;+ MIPROv2</td><td>8.7</td><td>5.6</td><td>18.6</td><td>10.3</td><td>0.0</td><td>15.1</td><td>9.9</td><td>10.7</td></tr>
+                    <tr class="ours"><td>&nbsp;&nbsp;+ <strong>DetPO (Ours) + VQA Score</strong></td><td><strong>16.1</strong></td><td><strong>25.2</strong></td><td><strong>36.5</strong></td><td><strong>20.1</strong></td><td>0.2</td><td><strong>25.7</strong></td><td><strong>18.4</strong></td><td class="best">21.6</td></tr>
+                    <tr><td>Gemini 3 Pro (C + I + V)</td><td>27.0</td><td>26.7</td><td>31.3</td><td>26.2</td><td>2.6</td><td>26.9</td><td>13.3</td><td>23.8</td></tr>
+                    <tr><td>&nbsp;&nbsp;+ GEPA</td><td>19.2</td><td>30.6</td><td>32.1</td><td>32.7</td><td>2.0</td><td>28.2</td><td>20.8</td><td>25.6</td></tr>
+                    <tr><td>&nbsp;&nbsp;+ MIPROv2</td><td>22.9</td><td>27.0</td><td>31.6</td><td>26.4</td><td>3.0</td><td>29.7</td><td>19.8</td><td>25.0</td></tr>
+                    <tr class="ours"><td>&nbsp;&nbsp;+ <strong>DetPO (Ours) + VQA Score</strong></td><td>26.2</td><td><strong>35.7</strong></td><td>35.4</td><td>23.3</td><td><strong>3.9</strong></td><td>28.2</td><td>20.4</td><td class="best">26.3</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>DetPO Transfers Across Generalist Models</h3>
+
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Method</th>
+                        <th>A</th>
+                        <th>D</th>
+                        <th>F &amp; F</th>
+                        <th>I</th>
+                        <th>M</th>
+                        <th>S</th>
+                        <th>O</th>
+                        <th>All</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>Qwen2.5-VL (7B) (C + I)</td><td>4.9</td><td>5.1</td><td>13.5</td><td>3.9</td><td>0.1</td><td>7.3</td><td>5.0</td><td>6.2</td></tr>
+                    <tr class="ours"><td>&nbsp;&nbsp;+ DetPO</td><td>6.2</td><td>12.1</td><td>19.3</td><td>4.2</td><td>0.0</td><td>9.1</td><td>7.5</td><td>9.1</td></tr>
+                    <tr class="ours"><td>&nbsp;&nbsp;+ DetPO + VQA Score</td><td>9.4</td><td>17.3</td><td>23.4</td><td>7.2</td><td>0.0</td><td>12.8</td><td>8.8</td><td><strong>11.9</strong></td></tr>
+                    <tr><td>Qwen2.5-VL (72B) (C + I)</td><td>6.3</td><td>10.7</td><td>19.0</td><td>7.5</td><td>0.4</td><td>14.4</td><td>9.1</td><td>10.4</td></tr>
+                    <tr class="ours"><td>&nbsp;&nbsp;+ DetPO</td><td>11.1</td><td>23.0</td><td>26.1</td><td>12.4</td><td>0.5</td><td>14.8</td><td>14.9</td><td>15.7</td></tr>
+                    <tr class="ours"><td>&nbsp;&nbsp;+ DetPO + VQA Score</td><td>10.8</td><td>26.3</td><td>26.7</td><td>13.0</td><td>0.5</td><td>16.7</td><td>15.0</td><td><strong>16.5</strong></td></tr>
+                    <tr><td>Qwen3-VL (8B) (C + I)</td><td>7.1</td><td>7.3</td><td>24.8</td><td>9.3</td><td>0.2</td><td>10.2</td><td>10.9</td><td>11.4</td></tr>
+                    <tr class="ours"><td>&nbsp;&nbsp;+ DetPO</td><td>8.3</td><td>19.1</td><td>30.3</td><td>13.7</td><td>0.1</td><td>14.2</td><td>12.2</td><td>15.3</td></tr>
+                    <tr class="ours"><td>&nbsp;&nbsp;+ DetPO + VQA Score</td><td>12.3</td><td>24.2</td><td>32.3</td><td>13.5</td><td>0.2</td><td>17.2</td><td>14.3</td><td><strong>17.5</strong></td></tr>
+                    <tr><td>Qwen3-VL (30B-A3B) (C + I)</td><td>9.0</td><td>7.8</td><td>23.5</td><td>9.6</td><td>0.7</td><td>14.4</td><td>10.1</td><td>11.9</td></tr>
+                    <tr class="ours"><td>&nbsp;&nbsp;+ DetPO</td><td>13.8</td><td>18.6</td><td>34.6</td><td>19.7</td><td>0.1</td><td>21.8</td><td>16.4</td><td>19.4</td></tr>
+                    <tr class="ours"><td>&nbsp;&nbsp;+ DetPO + VQA Score</td><td>16.1</td><td>25.2</td><td>36.5</td><td>20.1</td><td>0.2</td><td>25.7</td><td>18.4</td><td><strong>21.6</strong></td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="two-col-grid">
+            <div class="figure-container">
+                <img src="figures/instruction_type_comparison_by_category.png" alt="Instruction Type Comparison">
+                <p class="figure-caption">
+                    <strong>Instruction Type Comparison.</strong> DetPO optimized prompts consistently improve
+                    detection accuracy across nearly all categories compared to baseline and initial prompts.
+                </p>
+            </div>
+            <div class="figure-container">
+                <img src="figures/instruction_refinement_category_improvement.png" alt="Iterative Accuracy Improvement">
+                <p class="figure-caption">
+                    <strong>Iterative Accuracy Improvement.</strong> Most domains show strong initial gains that
+                    plateau around iteration 6, with Flora &amp; Fauna and Aerial showing the largest overall
+                    improvements (+2.8 and +2.5, respectively).
+                </p>
+            </div>
+        </div>
+
+        <hr>
+
+        <h2>Qualitative Results</h2>
+
+        <div class="figure-container">
+            <img src="figures/detection_results.jpg" alt="Qualitative Detection Results">
+            <p class="figure-caption">
+                <strong>Qualitative Results.</strong> The baseline Qwen3-VL model suffers from high false positive
+                rates (dense, overlapping boxes) and poor recall in complex environments. Our proposed method mitigates
+                these issues, significantly reducing erroneous predictions while successfully recovering missed objects
+                (like wheat heads and fish). Best viewed zoomed in.
+            </p>
+        </div>
+
+        <div class="figure-container">
+            <img src="figures/confusion_matrix.jpg" alt="Detection Confusion Matrix"
+                onerror="this.src='figures/confusion_matrix.jpg'">
+            <p class="figure-caption">
+                <strong>Detection Confusion Matrix.</strong> We compare Qwen3-VL (30B-A3B), Qwen3-VL with DetPO, and
+                with VQA Score across the Actions, Wb-Prova, and Defect Detection datasets. DetPO and VQA Score
+                consistently resolve baseline class imbalances, improving true positive rates for underrepresented
+                subjects (<em>Juvenile</em>, <em>Piglet</em>) and nuanced actions (<em>Defense</em>,
+                <em>Serve</em>).
+            </p>
+        </div>
+
+        <hr>
+
+        <h2>Prompt Refinement Example</h2>
+        <div class="abstract-container">
+            <p>
+                We show how DetPO progressively refines class descriptions. The highlighted text indicates newly added
+                discriminative details:
+            </p>
+
+            <div class="highlight-box">
+                <strong>Original Prompt:</strong> Soft plastic is often transparent or semi-transparent, featuring a
+                flexible, wrinkled appearance, and have diverse visual appearances.
+            </div>
+            <div class="highlight-box">
+                <strong>DetPO Initial Prompt:</strong> 'Soft plastic': Small, flexible, and thin sheets or bags made of
+                translucent plastic material. Characterized by a smooth, <span style="color:#0000cc;"><strong>shiny
+                surface that reflects light</strong></span>, often with crinkled or folded textures.
+            </div>
+            <div class="highlight-box">
+                <strong>DetPO Optimized Prompt:</strong> 'Soft plastic': Thin, flexible, and translucent plastic
+                material that appears in crumpled, or folded forms, often as sheets, bags, or loose fragments.
+                Characterized by a smooth, shiny surface that reflects light, with crinkled or wrinkled textures.
+                <span style="color:#0000cc;"><strong>It may hold contents but lacks rigid structures, doesn't maintain
+                fixed shape, and conforms to surfaces.</strong></span>
+            </div>
+        </div>
+
+        <hr>
+
+        <h2>Citation</h2>
+        <p style="text-align:center;">If you find our paper and code useful, please cite us:</p>
+        <div class="citation-block">
+            <pre><code>@inproceedings{gare2026detpo,
+  title={DetPO: In-Context Learning with Multi-Modal LLMs for Few-Shot Object Detection},
+  author={Gare, Gautam Rajendrakumar and Peri, Neehar and Popov, Matvei and Jain, Shruti and Galeotti, John and Ramanan, Deva},
+  booktitle={European Conference on Computer Vision (ECCV)},
+  year={2026}
+}</code></pre>
+        </div>
+
+    </div>
+</body>
+
+</html>

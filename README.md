@@ -1,6 +1,65 @@
-# DetPO: In-Context Learning with Multi-Modal LLMs for Few-Shot Object Detection:
+# DetPO: In-Context Learning with Multi-Modal LLMs for Few-Shot Object Detection
 
-A framework for zero-shot object detection using Vision-Language Models (VLMs), featuring iterative prompt refinement, confidence rescoring, and COCO-format evaluation. Inference is served through a **vLLM OpenAI-compatible HTTP server**, decoupling model hosting from the evaluation pipeline.
+> **ECCV 2026** — Gautam Rajendrakumar Gare, Neehar Peri, Matvei Popov, Shruti Jain, John Galeotti, Deva Ramanan
+
+[![Paper](https://img.shields.io/badge/Paper-ECCV%202026-blue)](https://github.com/gautamgare/DetPO)
+[![GitHub](https://img.shields.io/badge/Code-GitHub-black)](https://github.com/gautamgare/DetPO)
+
+A gradient-free, black-box prompt optimization framework for few-shot object detection with frozen Multi-Modal LLMs. DetPO iteratively refines text-only class descriptions using contrastive error examples (false positives and false negatives) from a few-shot training set, then calibrates confidence with a VQA-based scoring step. Inference is served through a **vLLM OpenAI-compatible HTTP server**, decoupling model hosting from the evaluation pipeline.
+
+---
+
+## Key Results
+
+DetPO outperforms prior black-box prompt optimization methods (GEPA, MIPROv2) by up to **9.7% mAP** on the Roboflow20-VL benchmark.
+
+### Roboflow20-VL (mAP, 20 diverse domains)
+
+| Method | Aerial | Document | Flora & Fauna | Industrial | Medical | Sports | Other | **All** |
+|---|---|---|---|---|---|---|---|---|
+| GroundingDINO | 28.5 | 5.1 | 33.7 | 12.8 | 0.4 | 5.1 | 16.9 | 16.8 |
+| LLMDet | 32.3 | 4.4 | 33.6 | 12.6 | 0.7 | 6.7 | 16.7 | 17.2 |
+| Qwen3-VL 30B (baseline) | 9.0 | 7.8 | 23.5 | 9.6 | 0.7 | 14.4 | 10.1 | 11.9 |
+| + GEPA | 9.3 | 12.4 | 23.6 | 10.8 | 1.3 | 15.1 | 11.3 | 13.0 |
+| + MIPROv2 | 8.7 | 5.6 | 18.6 | 10.3 | 0.0 | 15.1 | 9.9 | 10.7 |
+| **+ DetPO + VQA Score (Ours)** | **16.1** | **25.2** | **36.5** | **20.1** | 0.2 | **25.7** | **18.4** | **21.6** |
+| Gemini 3 Pro (baseline) | 27.0 | 26.7 | 31.3 | 26.2 | 2.6 | 26.9 | 13.3 | 23.8 |
+| + GEPA | 19.2 | 30.6 | 32.1 | 32.7 | 2.0 | 28.2 | 20.8 | 25.6 |
+| **+ DetPO + VQA Score (Ours)** | 26.2 | **35.7** | 35.4 | 23.3 | **3.9** | 28.2 | 20.4 | **26.3** |
+
+### DetPO Transfers Across Models
+
+| Model | Baseline | + DetPO | + DetPO + VQA Score |
+|---|---|---|---|
+| Qwen2.5-VL 7B | 6.2 | 9.1 | **11.9** |
+| Qwen2.5-VL 72B | 10.4 | 15.7 | **16.5** |
+| Qwen3-VL 8B | 11.4 | 15.3 | **17.5** |
+| Qwen3-VL 30B-A3B | 11.9 | 19.4 | **21.6** |
+
+### Why Multi-Modal ICL Hurts Detection
+
+Naively adding few-shot visual examples to the prompt consistently *hurts* accuracy across all tested models — DetPO avoids this by optimizing text-only prompts instead.
+
+| Model | Class Names only | + Instructions | + Images |
+|---|---|---|---|
+| Qwen2.5-VL 7B | 4.6 | 6.2 | 1.8 |
+| Qwen2.5-VL 72B | 7.1 | 10.4 | 10.1 |
+| Qwen3-VL 8B | 10.4 | 11.4 | 7.0 |
+| Qwen3-VL 30B-A3B | 10.7 | 11.9 | 9.8 |
+| Gemini 3 Pro | 21.9 | 23.0 | 23.9 |
+
+---
+
+## Figures
+
+| | |
+|---|---|
+| ![Overview](figures/Overview%20Figure.png) | ![Prompt Refinement](figures/volley_ball_optimized_instructions.png) |
+| **DetPO Overview.** Generates initial class descriptions from GT boxes, then iteratively refines them using contrastive false-positive and false-negative examples. | **Contrastive Refinement.** Highlighted text shows newly added details that distinguish *Serve* from *Attack* in a volleyball dataset. |
+| ![Detection Results](figures/detection_results.jpg) | ![Confusion Matrix](figures/confusion_matrix.jpg) |
+| **Qualitative Results.** Baseline suffers from dense false positives; DetPO + VQA Score recovers missed objects and suppresses erroneous detections. | **Confusion Matrix.** DetPO resolves class imbalances and improves true positive rates for rare/nuanced classes. |
+
+---
 
 This repository contains scripts to set up the environment and run DetPO-based prompt optimization for object detection.
 
