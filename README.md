@@ -2,8 +2,9 @@
 
 > **arXiv** — Gautam Rajendrakumar Gare, Neehar Peri, Matvei Popov, Shruti Jain, John Galeotti, Deva Ramanan
 
-[![Paper](https://img.shields.io/badge/Paper-arXiv-red)](https://github.com/ggare-cmu/DetPO)
+[![Paper](https://img.shields.io/badge/Paper-arXiv-red)](https://arxiv.org/abs/2603.23455)
 [![GitHub](https://img.shields.io/badge/Code-GitHub-black)](https://github.com/ggare-cmu/DetPO)
+[![Website](https://img.shields.io/badge/Website-blue)](https://ggare-cmu.github.io/DetPO/)
 
 A gradient-free, black-box prompt optimization framework for few-shot object detection with frozen Multi-Modal LLMs. DetPO iteratively refines text-only class descriptions using contrastive error examples (false positives and false negatives) from a few-shot training set, then calibrates confidence with a VQA-based scoring step. Inference is served through a **vLLM OpenAI-compatible HTTP server**, decoupling model hosting from the evaluation pipeline.
 
@@ -329,9 +330,12 @@ If you find this work useful, please cite:
 
 ```bibtex
 @article{gare2026detpo,
-  title={DetPO: In-Context Learning with Multi-Modal LLMs for Few-Shot Object Detection},
-  author={Gare, Gautam Rajendrakumar and Peri, Neehar and Popov, Matvei and Jain, Shruti and Galeotti, John and Ramanan, Deva},
-  journal={arXiv preprint},
-  year={2026}
+      title={DetPO: In-Context Learning with Multi-Modal LLMs for Few-Shot Object Detection},
+      author={Gautam Rajendrakumar Gare and Neehar Peri and Matvei Popov and Shruti Jain and John Galeotti and Deva Ramanan},
+      year={2026},
+      eprint={2603.23455},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2603.23455},
 }
 ```
