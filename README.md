@@ -1,7 +1,5 @@
 # DetPO: In-Context Learning with Multi-Modal LLMs for Few-Shot Object Detection
 
-> **arXiv** — Gautam Rajendrakumar Gare, Neehar Peri, Matvei Popov, Shruti Jain, John Galeotti, Deva Ramanan
-
 [![Paper](https://img.shields.io/badge/Paper-arXiv-red)](https://arxiv.org/abs/2603.23455)
 [![GitHub](https://img.shields.io/badge/Code-GitHub-black)](https://github.com/ggare-cmu/DetPO)
 [![Website](https://img.shields.io/badge/Website-blue)](https://ggare-cmu.github.io/DetPO/)
